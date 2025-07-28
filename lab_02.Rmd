@@ -1,0 +1,844 @@
+---
+title: "lab02"
+author: "Sarah Bazari"
+date: "2025-01-22"
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+```{r Functions, include=FALSE}
+# Plot a single run
+discreteExponential = function(N0 = 10, lambda = 1.1, tEnd = 50,
+  autoScale = FALSE,
+  axisNMax = 1000,
+  useLogScale = FALSE, filename = NULL)
+{
+  cat(sprintf(
+    "discreteExponential(N0=%d, lambda=%.1f, tEnd=%d, axisNMax=%d, autoScale=%s, useLogScale=%s)\n",
+    N0, lambda, tEnd, axisNMax, autoScale, useLogScale))
+  
+  # Initialize time, population size variables
+  tVec = seq(from=0, to=tEnd, by=1)
+  NVec = numeric(tEnd + 1)
+  NVec[1] = N0
+  
+  # Iterate exponential growth for each time step
+  for(i in 1:tEnd)
+  {
+    NVec[i + 1] = lambda * NVec[i]
+  }
+  
+  plotResult(discrete=TRUE, tVec=tVec, NVec=NVec, autoScale=autoScale, axisNMax=axisNMax,
+             useLogScale=useLogScale)
+  saveResult(tVec=tVec, NVec=NVec, filename=filename)
+}
+
+# Interactive manipulator
+discreteExponentialInteractive = function()
+{
+  require(manipulate, quietly=TRUE)
+  manipulate(
+    invisible(discreteExponential(N0 = N0, lambda = lambda, tEnd = tEnd,
+      autoScale = autoScale, axisNMax = axisNMax, useLogScale = useLogScale
+    )),
+    N0 = makeN0Slider(),
+    lambda = makeLambdaSlider("lambda"),
+    tEnd = makeTEndSlider(),
+    axisNMax = makeAxisNMaxSlider(),
+    autoScale = makeAutoScaleCheckbox(),
+    useLogScale = makeUseLogScaleCheckbox()
+  )
+}
+
+### DISCRETE-TIME EXPONENTIAL MODEL WITH ENVIRONMENTAL STOCHASTICITY
+### N_{t+1} = R_t * N_t
+### where R_t is drawn from a zero-truncated Normal(RMean, lambdaSD)
+
+# Single simulator
+discreteExponentialStochastic = function(N0=10, lambdaMean=1.1, lambdaSD=0.1,
+  tEnd = 50, autoScale = FALSE,
+  axisNMax = 1000, useLogScale = FALSE, seed = NULL,
+  filename = NULL)
+{
+  if(is.null(seed))
+  {
+    # This is a terrible way to generate random seeds
+    # but useful for a more important goal: keep the seed < 10000.
+    seed = sample.int(n=10000, size=1)
+  }
+  set.seed(seed)
+  
+  cat(sprintf(
+    "discreteExponentialStochastic(N0=%d, RMean=%.1f, lambdaSD=%.1f, tEnd=%d, axisNMax=%d, useLogScale=%s, autoScale=%s, seed=%d)\n",
+    N0, lambdaMean, lambdaSD, tEnd, axisNMax, useLogScale, autoScale, seed))
+  
+  # Initialize time, population size variables
+  tVec = seq(from=0, to=tEnd, by=1)
+  NVec = numeric(tEnd + 1)
+  NVec[1] = N0
+  
+  # Iterate exponential growth for each time step
+  for(i in 1:tEnd)
+  {
+  	lambda = 0
+  	while(lambda <= 0)
+  	{
+  	  lambda = rnorm(n = 1, mean = lambdaMean, sd = lambdaSD)
+  	}
+    NVec[i + 1] = lambda * NVec[i]
+  }
+  
+  plotResult(discrete=TRUE, tVec=tVec, NVec=NVec, autoScale=autoScale, axisNMax=axisNMax,
+             useLogScale=useLogScale)
+  saveResult(tVec=tVec, NVec=NVec, filename=filename)
+}
+
+# Interactive controller
+discreteExponentialStochasticInteractive = function()
+{
+  require(manipulate, quietly=TRUE)
+  manipulate(
+    invisible(discreteExponentialStochastic(
+      N0 = N0,
+      lambdaMean = lambdaMean, lambdaSD = lambdaSD,
+      tEnd = tEnd,
+      axisNMax = axisNMax, 
+      autoScale=autoScale,
+      useLogScale = useLogScale
+    )),
+    N0 = makeN0Slider(),
+    lambdaMean = makeLambdaSlider("lambda mean"),
+    lambdaSD = makelambdaSDSlider(),
+    tEnd = makeTEndSlider(),
+    axisNMax = makeAxisNMaxSlider(),
+    autoScale = makeAutoScaleCheckbox(),
+    useLogScale = makeUseLogScaleCheckbox()
+  )
+}
+
+### CONTINUOUS-TIME EXPONENTIAL MODEL
+
+continuousExponential = function(N0=10, r=0.1,
+  tEnd = 50, autoScale = FALSE, axisNMax = 10000, useLogScale = FALSE, filename = NULL)
+{
+  require(deSolve, quietly=TRUE)
+  
+  cat(sprintf(
+    "continuousExponential(N0=%d, r=%.1f, tEnd=%d, axisNMax=%d, autoScale=%s, useLogScale=%s)\n",
+    N0, r, tEnd, axisNMax, autoScale, useLogScale
+  ))
+  
+  dNdtFunc = function(t, states, params) 
+  {
+    with(as.list(c(states, params)),
+    {
+      dNdt = r*N
+      return(list(c(dNdt)))
+    })
+  }
+  
+  # Set up initial conditions and parameters for ODE simulator
+  tVec = seq(from=0, to=tEnd, by=0.01)
+  states = c(N = N0)
+  params = c(r = r)
+  
+  # Run ODE simulator
+  results = as.data.frame(
+    ode(y = states, times = tVec, func = dNdtFunc, parms = params)
+  )
+  
+  plotResult(discrete=FALSE, tVec=results$time, NVec=results$N, autoScale=autoScale, axisNMax=axisNMax,
+             useLogScale=useLogScale)
+  saveResult(tVec=tVec, NVec=NVec, filename=filename)
+}
+
+continuousExponentialInteractive = function()
+{
+  require(manipulate, quietly=TRUE)
+  manipulate(
+    invisible(continuousExponential(
+      N0 = N0,
+      r = r, 
+      tEnd = tEnd,
+      axisNMax = axisNMax, 
+      autoScale=autoScale,
+      useLogScale = useLogScale
+    )),
+    N0 = makeN0Slider(),
+    r = makeLittleRSlider("r"),
+    tEnd = makeTEndSlider(),
+    axisNMax = makeAxisNMaxSlider(),
+    autoScale = makeAutoScaleCheckbox(),
+    useLogScale = makeUseLogScaleCheckbox()
+  )
+}
+
+### CONTINUOUS-TIME LOGISTIC MODEL
+
+logistic = function(
+  N0=10, r0=0.0, K=750, tEnd = 50, axisNMax = 10000, 
+  autoScale = FALSE, useLogScale = FALSE, filename=NULL)
+{
+  require(deSolve, quietly=TRUE)
+  
+  cat(sprintf(
+    "logistic(N0=%d, r0=%.1f, K=%d, tEnd=%d, axisNMax=%d, autoScale=%s, useLogScale=%s)\n",
+    N0, r0, K, tEnd, axisNMax, autoScale, useLogScale
+  ))
+  
+  dNdtFunc = function(t, states, params) 
+  {
+    with(as.list(c(states, params)),
+    {
+      dNdt = r0 *(1 - N / K) * N
+      return(list(c(dNdt)))
+    })
+  }
+  
+  # Set up initial conditions and parameters for ODE simulator
+  tVec = seq(from=0, to=tEnd, by=0.01)
+  states = c(N = N0)
+  params = c(r0 = r0)
+  
+  # Run ODE simulator
+  results = as.data.frame(
+    ode(y = states, times = tVec, func = dNdtFunc, parms = params)
+  )
+  
+  plotResult(discrete=FALSE, tVec=results$time, NVec=results$N, autoScale=autoScale, axisNMax=axisNMax,
+             useLogScale=useLogScale)
+  saveResult(tVec=tVec, NVec=NVec, filename=filename)
+}
+
+logisticInteractive = function()
+{
+  require(manipulate, quietly=TRUE)
+  manipulate(
+    invisible(logistic(
+      N0 = N0,
+      r0 = r0, K = K,
+      tEnd = tEnd,
+      axisNMax = axisNMax, 
+      autoScale=autoScale,
+      useLogScale = useLogScale
+    )),
+    N0 = makeN0Slider(),
+    r0 = makeLittleRSlider("r0"),
+    K = makeKSlider(),
+    tEnd = makeTEndSlider(),
+    axisNMax = makeAxisNMaxSlider(),
+    autoScale = makeAutoScaleCheckbox(),
+    useLogScale = makeUseLogScaleCheckbox()
+  )
+}
+
+### CONTINUOUS-TIME LOGISTIC MODEL WITH EXTRA PLOTS
+
+logisticThreePlots = function(
+  N0=10, r0=0.0, K=750, tEnd = 50, axisNMax = 10000, 
+  autoScale = FALSE, useLogScale = FALSE, filename=NULL)
+{
+  require(deSolve, quietly=TRUE)
+  
+  cat(sprintf(
+    "logisticThreePlots(N0=%d, r0=%.1f, K=%d, tEnd=%d, axisNMax=%d, autoScale=%s, useLogScale=%s)\n",
+    N0, r0, K, tEnd, axisNMax, autoScale, useLogScale
+  ))
+  
+  dNdtFunc = function(t, states, params) 
+  {
+    with(as.list(c(states, params)),
+    {
+      dNdt = r0 *(1 - N / K) * N
+      return(list(c(dNdt)))
+    })
+  }
+  
+  # Set up initial conditions and parameters for ODE simulator
+  tVec = seq(from=0, to=tEnd, by=0.01)
+  states = c(N = N0)
+  params = c(r0 = r0)
+  
+  # Run ODE simulator
+  results = as.data.frame(
+    ode(y = states, times = tVec, func = dNdtFunc, parms = params)
+  )
+  
+  tVec = results$time
+  NVec = results$N
+  
+  perCapitaGrowthRate = r0 * (1 - NVec / K)
+  totalGrowthRate = r0 * (1 - NVec / K) * NVec
+  
+  par(mfrow=c(3,1))
+  plotResult(discrete=FALSE, tVec=tVec, NVec=NVec, autoScale=autoScale, axisNMax=axisNMax,
+             useLogScale=useLogScale)
+  plotResult(discrete=FALSE, tVec=tVec, NVec=perCapitaGrowthRate, autoScale=TRUE, axisNMax=axisNMax,
+             useLogScale=useLogScale, yLabel="per-capita growth rate")
+  plotResult(discrete=FALSE, tVec=tVec, NVec=totalGrowthRate, autoScale=TRUE, axisNMax=axisNMax,
+             useLogScale=useLogScale, yLabel="total growth rate")
+  saveResult(tVec=tVec, NVec=NVec, filename=filename)
+  par(mfrow=c(1,1))
+}
+
+logisticThreePlotsInteractive = function()
+{
+  require(manipulate, quietly=TRUE)
+  manipulate(
+    invisible(logisticThreePlots(
+      N0 = N0,
+      r0 = r0, K = K,
+      tEnd = tEnd,
+      axisNMax = axisNMax, 
+      autoScale=autoScale,
+      useLogScale = useLogScale
+    )),
+    N0 = makeN0Slider(),
+    r0 = makeLittleRSlider("r0"),
+    K = makeKSlider(),
+    tEnd = makeTEndSlider(),
+    axisNMax = makeAxisNMaxSlider(),
+    autoScale = makeAutoScaleCheckbox(),
+    useLogScale = makeUseLogScaleCheckbox()
+  )
+}
+
+### DISCRETE-TIME RICKER MAP
+### N_{t+1} = e^(r0 * (1 - N_t / K)) * N_t
+
+# Plot a single run
+ricker = function(N0 = 10, r0 = 0.1, K = 750,
+  tEnd = 50, autoScale = FALSE, axisNMax = 10000, useLogScale = FALSE, filename = NULL)
+{
+  cat(sprintf(
+    "ricker(N0=%d, r0=%.1f, K=%d, tEnd=%d, axisNMax=%d, autoScale=%s, useLogScale=%s)\n",
+    N0, r0, K, tEnd, axisNMax, autoScale, useLogScale
+  ))
+  
+  # Initialize time, population size variables
+  tVec = seq(from=0, to=tEnd, by=1)
+  NVec = numeric(tEnd + 1)
+  NVec[1] = N0
+  
+  # Iterate exponential growth with density-dependent growth rate
+  # for each time step
+  for(i in 1:tEnd)
+  {
+    lambda = exp(r0 * (1 - NVec[i] / K))
+    NVec[i + 1] = lambda * NVec[i]
+  }
+  
+  plotResult(discrete=TRUE, tVec=tVec, NVec=NVec, autoScale=autoScale, axisNMax=axisNMax,
+             useLogScale=useLogScale)
+  saveResult(tVec=tVec, NVec=NVec, filename=filename)
+}
+
+# Interactive manipulator
+rickerInteractive = function()
+{
+  require(manipulate, quietly=TRUE)
+  manipulate(
+    invisible(ricker(
+      N0 = N0, r0=r0, K=K,
+      tEnd = tEnd,
+      axisNMax = axisNMax, 
+      autoScale=autoScale,
+      useLogScale = useLogScale
+    )),
+    N0 = makeN0Slider(),
+    r0 = makeLittleRSlider("r0"),
+    K = makeKSlider(),
+    tEnd = makeTEndSlider(),
+    axisNMax = makeAxisNMaxSlider(),
+    autoScale = makeAutoScaleCheckbox(),
+    useLogScale = makeUseLogScaleCheckbox()
+  )
+}
+
+### DISCRETE-TIME RICKER MAP WITH ENVIRONMENTAL STOCHASTICITY
+### N_{t+1} = [e^(r_t * (1 - N_t / K)) + Normal(0, lambdaSD)] * N_t
+
+# Plot a single run
+rickerStochastic = function(N0 = 10, r0 = 0.1, K = 750, lambdaSD = 0.1,
+  tEnd = 50, autoScale = FALSE, axisNMax = 10000, useLogScale = FALSE, seed=NULL, filename=NULL)
+{
+  if(is.null(seed))
+  {
+    # This is a terrible way to generate random seeds
+    # but useful for a more important goal: keep the seed < 10000.
+    seed = sample.int(n=10000, size=1)
+  }
+  set.seed(seed)
+  
+  cat(sprintf(
+  	"rickerStochastic(N0=%d, r0=%.1f, K=%d, lambdaSD=%.1f, tEnd=%d, autoScale=%s, axisNMax=%d, useLogScale=%s, seed=%d)\n",
+  	N0, r0, K, lambdaSD, tEnd, autoScale, axisNMax, useLogScale, seed
+  ))
+  
+  # Initialize time, population size variables
+  tVec = seq(from=0, to=tEnd, by=1)
+  NVec = numeric(tEnd + 1)
+  NVec[1] = N0
+  
+  # Iterate exponential growth with density-dependent growth rate
+  # for each time step, adding stochastic term to R
+  for(i in 1:tEnd)
+  {
+    lambda = exp(r0 * (1 - NVec[i] / K))
+    if(lambda > 0)
+    {
+		lambdaDelta = -lambda
+		while(lambdaDelta <= -lambda)
+		{
+			lambdaDelta = rnorm(n=1, mean=0, sd=lambdaSD)
+		}
+		lambda = lambda + lambdaDelta
+    }
+    NVec[i + 1] = lambda * NVec[i]
+  }
+  
+  plotResult(discrete=TRUE, tVec=tVec, NVec=NVec, autoScale=autoScale, axisNMax=axisNMax,
+             useLogScale=useLogScale)
+  saveResult(tVec=tVec, NVec=NVec, filename=filename)
+}
+
+# Interactive manipulator
+rickerStochasticInteractive = function()
+{
+  require(manipulate, quietly=TRUE)
+  manipulate(
+    invisible(rickerStochastic(N0 = N0,
+      r0=r0,
+      K=K,
+      lambdaSD=lambdaSD,
+      tEnd = tEnd,
+      axisNMax = axisNMax, 
+      autoScale=autoScale,
+      useLogScale = useLogScale
+    )),
+    N0 = makeN0Slider(),
+    r0 = makeLittleRSlider("r0"),
+    K = makeKSlider(),
+    lambdaSD = makelambdaSDSlider(),
+    tEnd = makeTEndSlider(),
+    axisNMax = makeAxisNMaxSlider(),
+    autoScale = makeAutoScaleCheckbox(),
+    useLogScale = makeUseLogScaleCheckbox()
+  )
+}
+
+### SHARED PLOTTING FUNCTION
+
+plotResult = function(discrete=FALSE, tVec, NVec, autoScale, axisNMax, useLogScale, yLabel="population size")
+{
+  if(useLogScale)
+  {
+    axisNMin = 1
+    logPar = "y"
+  }
+  else
+  {
+    axisNMin = 0
+    logPar = ""
+  }
+  
+  if(autoScale)
+  {
+    ylim = NULL
+  }
+  else
+  {
+    ylim = c(axisNMin, axisNMax)
+  }
+  
+  if(discrete)
+  {
+  	plotType = 'b'
+  }
+  else
+  {
+  	plotType = 'l'
+  }
+  
+  # Plot result
+  plot(x = tVec, y = NVec, type = plotType, xlab = "time", ylab = yLabel,
+       ylim=ylim, log=logPar)
+}
+
+saveResult = function(tVec, NVec, filename)
+{
+  if(is.null(filename))
+    return(invisible())
+  
+  results = data.frame(t = tVec, N = NVec)
+  write.csv(x = results, file = filename, row.names = FALSE)
+}
+
+makeN0Slider = function()
+{
+  slider(
+    min = 1, max = 100, initial = 10, step = 1, ticks = FALSE
+  )
+}
+
+makeLambdaSlider = function(label)
+{
+  slider(
+    min = 0.0, max = 20, initial = 1.1, label = label,
+    step = 0.1, ticks = FALSE
+  )
+}
+
+makeLittleRSlider = function(label)
+{
+  slider(
+    min = -5.0, max = 5.0, initial = 0.1, label = label,
+    step = 0.1, ticks = FALSE
+  )
+}
+
+makelambdaSDSlider = function()
+{
+  slider(
+    min = 0.0, max = 1.0, initial = 0.1, label = "lambda std. dev.",
+    step = 0.1, ticks = FALSE
+  )
+}
+
+makeTEndSlider = function()
+{
+  slider(
+    min = 10, max = 200, initial = 50, step = 1, ticks = FALSE, label = "maximum t"
+  )
+}
+
+makeAxisNMaxSlider = function()
+{
+  slider(
+    min = 1, max = 10000, initial = 1000, label = "y-axis scale",
+    step = 1, ticks = FALSE
+  )
+}
+
+makeAutoScaleCheckbox = function()
+{
+  checkbox(label = "auto-scale?")
+}
+
+makeUseLogScaleCheckbox = function()
+{
+  checkbox(label = "plot on log scale?")
+}
+
+makeKSlider = function()
+{
+  slider(
+    min = 10, max = 2000, initial = 750, label = "K", step = 1, ticks = FALSE
+  )
+}
+
+```
+
+# **Exercise I**
+
+## Exponential Growth w/ $$ \lambda $$
+
+### Manipulating Parameter Values
+
+1.  
+
+    a)  $$ \lambda = 1 $$ At this value, there is no population growth
+        or decay occurring, which is shown by the lack of change in
+        population over time in the model. We see that the default
+        parameter values has a lambda of 1.1, which shows a slight
+        increase in population over time, but when changed to value 1,
+        this growth halts. This results in a linear model rather than an
+        exponential model. I also manipulated the x and y axes to better
+        represent the data.
+
+```{r Equals One}
+discreteExponential(N0=10, lambda=1, tEnd=25, axisNMax=250, autoScale=FALSE, useLogScale=FALSE)
+```
+
+1.  
+
+    b)  $$ \lambda < 1 $$ We see that the population is exponentially
+        decaying. A growth rate under 1 is a decaying population. In
+        this example, I used a growth rate of 0.5 and manipulated the x
+        and y axes from the default values to visualize the decay (i.e y
+        axis at population size 10 over 50 time steps.)
+
+```{r Less Than One}
+discreteExponential(N0=10, lambda=0.5, tEnd=50, axisNMax=10, autoScale=FALSE, useLogScale=FALSE)
+```
+
+1.  
+
+    c)  Changing the initial population size changes the y-intercept.
+        For example, I used an initial population size of 1000, which
+        changed the y-intercept to 1000. Decay and growth only depend on
+        the growth rate, which I have set to grow at 1.5. I manipulated
+        the x and y axes to better represent the data.
+
+```{r Changing N0}
+discreteExponential(N0=1000, lambda=1.5, tEnd=5, axisNMax=10000, autoScale=FALSE, useLogScale=FALSE)
+```
+
+# **Exercise II**
+
+## Continuous-Time Exponential Growth
+
+### Manipulating Parameter Values
+
+2.  
+
+    a)  In the continuous-time model of exponential growth, we can see
+        that the changes in the population value are not denoted by
+        exact points on the graph, rather they do not exist in this
+        model and a smooth line is shown. Discrete time models and
+        continuous time models are represented by differing
+        representations of time-steps. Time is continuous in this model
+        and we can clearly see an end to the population growth denoted
+        by final t. This is where the line on the model stops.
+
+```{r Continuous-Time}
+continuousExponential(N0=10, r=0.2, tEnd=50, axisNMax=1000, autoScale=FALSE, useLogScale=FALSE)
+```
+
+2.  
+
+    b)  In changing the value of r to 0.5, we see that the population
+        grows much quicker. This also changes where the line is
+        asymptotic on the x axis. As well, the line is much steeper.
+
+```{r}
+continuousExponential(N0=10, r=0.5, tEnd=25, axisNMax=1000, autoScale=FALSE, useLogScale=FALSE)
+```
+
+# **Exercise III**
+
+## Closed-Form Equation for Discrete Growth and Continuous Growth
+
+------------------------------------------------------------------------
+
+-   The discrete growth equation is given by: $$ N_t = \lambda^tN_0 $$
+
+-   For no growth from the discrete model: $$ \lambda^t = 1 $$
+    $$ \lambda = 1 $$
+
+-   The continuous growth equation is given by: $$ N_t = N_0e^{rt} $$
+
+-   For no growth from the continuous model: $$ e^{rt} = 1 $$
+    $$ r = 0 $$
+
+So, $$ \lambda = 1,    r = 0   $$
+
+------------------------------------------------------------------------
+
+-   Derivation of the Relationship
+
+$$ \lambda^t = e^{rt} $$ $$ ln(\lambda^t) = rt $$
+$$ t*ln(\lambda) = rt $$ Assuming t \> 0 $$ ln(\lambda) = r $$
+$$ \lambda = e^r $$ So, $$ r = ln(\lambda) $$ and $$ \lambda = e^r $$
+
+-   **In conclusion, the mathematical relationship is: r is equal to the
+    natural log of lambda.**
+
+### Simulating Discrete and Continuous Growth Processes
+
+###### Plot 1 and 2: Discrete vs. Continuous Growth (lambda \> 1, r\> 0)
+
+```{r Discrete Growth}
+# Discrete Growth
+discreteExponential(N0=10, lambda=1.5, tEnd=25, axisNMax=1000, autoScale=FALSE, useLogScale=FALSE)
+```
+
+```{r Continuous Growth}
+# Continuous-Time Model
+continuousExponential(N0=10, r=0.405, tEnd=50, axisNMax=10000, autoScale=FALSE, useLogScale=FALSE)
+```
+
+-   In plots 1 and 2, I modeled a discrete-time plot with
+    $$ \lambda = 1.5 $$ and $$ r = ln(1.5) $$ to represent the
+    relationship between the two parameters. In the plots, we can see
+    that these two parameters result in similar growth.
+
+###### Plot 3 and 4: Discrete vs. Continuous Decay (0 \< lambda \< 1, r \< 0)
+
+```{r Discrete Decay}
+# Discrete Decay
+discreteExponential(N0=10, lambda=0.8, tEnd=25, axisNMax=50, autoScale=FALSE, useLogScale=FALSE)
+```
+
+```{r Continuous Decay}
+# Continuous Decay
+continuousExponential(N0=10, r=-0.223, tEnd=25, axisNMax=50, autoScale=FALSE, useLogScale=FALSE)
+```
+
+-   In plots 3 and 4, I modeled a discrete-time plot with
+    $$ \lambda = 0.8 $$ and $$ r = ln(0.8) $$ to represent the
+    relationship between the two parameters. In the models, we can see
+    that both predict similar population decline.
+
+------------------------------------------------------------------------
+
+# **Exercise IV**
+
+## Logistic Model in Continuous Time
+
+### Comparing Behaviors of Logistic and Ricker Models
+
+###### $$ r_0 = 0.7 $$
+
+-   Changing the growth parameter of the logistic model and Ricker model
+    does not change the predictions of the two models at r = 0.7. This
+    is represented by the logistic model having a continuous smooth
+    line, while the Ricker model shows distinct data points at each time
+    step.
+
+```{r Logistic Model 0.7}
+logistic(N0=10, r0=0.7, K=750, tEnd=50, axisNMax=10000, autoScale=FALSE, useLogScale=FALSE)
+```
+
+```{r Ricker Model 0.7}
+ricker(N0=10, r0=0.7, K=750, tEnd=50, axisNMax=10000, autoScale=FALSE, useLogScale=FALSE)
+```
+
+###### $$ r_0 = 2.0 $$
+
+-   We start to see differences in representations of the data at r =
+    2.0. The logistic model seems to lack the ability to represent the
+    subtle oscillations that are shown in the Ricker model at each time
+    step. The Ricker model provides a complexity the the logistic model
+    is not showing.
+
+```{r Logistic Model 2.0}
+logistic(N0=10, r0=2.0, K=750, tEnd=50, axisNMax=10000, autoScale=FALSE, useLogScale=FALSE)
+```
+
+```{r Ricker Model 2.0}
+ricker(N0=10, r0=2.0, K=750, tEnd=50, axisNMax=10000, autoScale=FALSE, useLogScale=FALSE)
+```
+
+###### $$ r_0 = 4.0 $$
+
+-   In these plots, we see even more variation between the logistic and
+    Ricker model. The oscillations are greater in the Ricker model, and
+    the logistic model has not changed much from the previous differing
+    r values.
+
+```{r Logistic Model 4.0}
+logistic(N0=10, r0=4.0, K=750, tEnd=50, axisNMax=10000, autoScale=FALSE, useLogScale=FALSE)
+```
+
+```{r Ricker Model 4.0}
+ricker(N0=10, r0=4.0, K=750, tEnd=50, axisNMax=10000, autoScale=FALSE, useLogScale=FALSE)
+```
+
+------------------------------------------------------------------------
+
+# **Exercise V**
+
+## Applying a Stochastic Lambda
+
+-   In the stochastic model below, we see that a majority of the data
+    points are clustered around each other and there seems to be
+    somewhat of an oscillatory pattern. This population seems to be much
+    more prone to stability. This reflects the uncertainty of the model
+    and lack of predictive nature. In the deterministic model, there is
+    much more spacing between the data points, and an oscillatory
+    pattern is more prevalent and easily visualized. The carrying
+    capacity governs both populations, but the deterministic model is
+    much more unstable. We could say that the carrying capacity impacts
+    the deterministic model population much more.
+
+```{r Stochastic Ricker}
+rickerStochastic(N0=10, r0=0.7, K=750, lambdaSD=1.0, tEnd=100, autoScale=FALSE, axisNMax=4000, useLogScale=FALSE, seed=3043)
+```
+
+```{r Deterministic Ricker}
+ricker(N0=10, r0=3.5, K=750, tEnd=100, axisNMax=4000, autoScale=FALSE, useLogScale=FALSE)
+```
+
+------------------------------------------------------------------------
+
+# **Exercise VI**
+
+## Understanding Ricker Behavior
+
+-   It can be assumed that the Ricker model is meant to represent
+    populations that breed at distinct times, while the continuous
+    logistic model represents populations that continuously breed. The
+    continuous logistic model would be useful to visualize growth in
+    populations like humans, ape species, and rodent species since they
+    exhibit continuous breeding patterns. The Ricker model would be
+    useful to visualize growth in populations like bird species that
+    breed during the spring, female deers that breed within a specific
+    period of the year, and species that have distinct life stages like
+    butterflies.
+
+------------------------------------------------------------------------
+
+# **Exercise VII**
+
+## Logistic Equation with two extra graphs
+
+```         
+7.  
+
+    a)  I used an N0 of 10, r0 of 0.9 and K of 750. The total growth
+        rate is proportional to the population size. Also, the total
+        growth rate is calculated by multiplying the per-capita
+        growth rate by the population size.
+```
+
+```{r ThreePlots}
+logisticThreePlots(N0=10, r0=0.9, K=750, tEnd=25, axisNMax=1000, autoScale=FALSE, useLogScale=FALSE)
+```
+
+------------------------------------------------------------------------
+
+# **Exercise VIII**
+
+## Plotting relationship between population growth and population density
+
+8.  
+
+    a)  This model seems to be representing a population that is
+        regulated. This is a logistic model where we see initial rapid
+        growth followed by a decrease when the population grows. This
+        can be assumed because there is a clear plateau for the carrying
+        capacity where the growth rate plummets at the population size
+        grows to be too large. This is the maximum population size the
+        environment can handle.
+
+9.  
+
+    b)  This model does not seem to exhibit an Allee effect, and rather
+        logistic growth, because the population does not remain small
+        with a low growth rate. The model represents "normal" conditions
+        where there is negative correlation between the growth rate and
+        the population density. The Allee effect would exhibit a
+        positive correlation between growth rate and population density.
+        A biological explanation for an Allee effect could be the lack
+        of genetic diversity in a population causing a decrease in
+        fitness as the population size decreases. This would put the
+        population at risk of extinction.
+
+10. 
+
+    c)  Sketching the logistic model. In red are the 3 equilibrium
+        points where there is no change in the population density or
+        growth rate. The point where the population is small and has not
+        started growing is stable. The point at the carrying capacity is
+        a stable point. This is normal considering the population starts
+        to decrease once it hit the maximum. The final point after the
+        population declined is unstable and seeming to be near
+        extinction because of the steep decrease after hitting the
+        carrying capacity.
+
+![](Library/CloudStorage/OneDrive-UniversityofNorthCarolinaatChapelHill/BIOL564/lab02/LogisticModelEquPoints.png)

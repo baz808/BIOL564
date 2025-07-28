@@ -1,0 +1,32 @@
+---
+title: "lab01"
+author: "Sarah Bazari"
+date: "2025-01-15"
+---
+
+### Assigning variables to a function
+
+Storing round(5.5) in a variable. Uses built in round() function.
+
+```{r}
+x <- round(5.5)
+x
+```
+
+### Loading packages
+
+Loading 'maps' and 'mapdata' packages, and printing the results.
+
+```{r}
+library(maps)
+library(mapdata)
+```
+
+### Calling the map() function
+
+Calling the map function with the 'col' and 'world' argument.
+
+```{r}
+map("world", col = 'purple')
+map("world")
+```
